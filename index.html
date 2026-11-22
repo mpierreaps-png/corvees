@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dernière fois">
+<meta name="theme-color" content="#0f766e">
+<title>Dernière fois</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, list sorted by what's been waiting longest; each row = name, elapsed time, one big "Fait" button */
+:root {
+  --bg: #f3f6f6;
+  --surface: #ffffff;
+  --fg: #14282b;
+  --muted: #5d7276;
+  --line: #dbe4e5;
+  --accent: #0f766e;
+  --accent-fg: #ffffff;
+  --ok: #3f9b6a;
+  --soon: #d49a1c;
+  --late: #c8452f;
+  --track: #e5ecec;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1819; --surface: #162426; --fg: #e6f0f0; --muted: #94aaad; --line: #263a3c;
+    --accent: #2dbfb1; --accent-fg: #06201d; --ok: #5cc48c; --soon: #e3b13f; --late: #ee7a64; --track: #22363a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1819; --surface: #162426; --fg: #e6f0f0; --muted: #94aaad; --line: #263a3c;
+  --accent: #2dbfb1; --accent-fg: #06201d; --ok: #5cc48c; --soon: #e3b13f; --late: #ee7a64; --track: #22363a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.4;
+  padding-block: 20px 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--font-display); font-size: 1.9rem; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 0.9rem; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.task { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.row { display: flex; align-items: stretch; gap: 0; }
+.info { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 14px 8px 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.name { font-weight: 600; font-size: 1.05rem; overflow-wrap: anywhere; }
+.when { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.when.ok { color: var(--ok); } .when.soon { color: var(--soon); } .when.late { color: var(--late); } .when.none { color: var(--muted); }
+.freq { color: var(--muted); font-size: 0.85rem; }
+.done { flex: none; width: 84px; margin: 10px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-fg); font-weight: 600; font-size: 1rem; }
+.done:active { transform: scale(0.96); }
+.bar { height: 4px; background: var(--track); }
+.bar > i { display: block; height: 100%; background: var(--ok); }
+.bar > i.soon { background: var(--soon); } .bar > i.late { background: var(--late); }
+.panel { border-top: 1px solid var(--line); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.field label { flex: 1 1 100%; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+input[type=text], input[type=number], input[type=date] { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; flex: 1 1 120px; }
+.btn { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 14px; font-weight: 500; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.btn.danger { color: var(--late); }
+.btn.danger.armed { background: var(--late); color: var(--bg); border-color: transparent; }
+.hist { color: var(--muted); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 6px; }
+.hist span { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.add { display: flex; flex-wrap: wrap; gap: 8px; background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 12px; }
+.add input[type=text] { flex: 2 1 160px; } .add input[type=number] { flex: 1 1 90px; }
+.empty { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.empty p { margin: 0; color: var(--muted); }
+.note { color: var(--muted); font-size: 0.85rem; }
+.toast { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px max(16px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; pointer-events: none; }
+.toast > div { pointer-events: auto; background: var(--fg); color: var(--bg); border-radius: 12px; padding: 10px 14px; display: flex; gap: 14px; align-items: center; max-width: 560px; width: 100%; justify-content: space-between; }
+.toast button { background: none; border: 0; color: inherit; font-weight: 600; text-decoration: underline; }
+@media (prefers-reduced-motion: no-preference) { .done { transition: transform .1s; } }
+</style>
+
+<style>:root{color-scheme:light dark}html,body{margin:0}</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dernière fois</h1>
+    <button class="btn" id="sort" type="button"></button>
+  </header>
+  <span class="sub" id="count"></span>
+  <div id="status" class="note" hidden></div>
+  <ul id="list"></ul>
+  <div id="empty" class="empty" hidden>
+    <strong>Aucune tâche pour l'instant</strong>
+    <p>Ajoute la tienne ci-dessous, ou pars de ta liste (tout compté comme fait aujourd'hui).</p>
+    <button class="btn primary" id="seed" type="button">Charger ma liste</button>
+  </div>
+  <form class="add" id="addForm">
+    <input type="text" id="newName" placeholder="Nouvelle tâche (ex. rideaux)" maxlength="80" required aria-label="Nom de la tâche">
+    <button class="btn primary" type="submit">Ajouter</button>
+  </form>
+  <div class="add" style="border-style:solid"><button class="btn" id="export" type="button">Exporter une sauvegarde</button><button class="btn" id="import" type="button">Importer</button><input type="file" id="file" accept="application/json,.json" hidden></div>
+  <button class="btn danger" id="reset" type="button"></button>
+  <p class="note" id="where"></p>
+</main>
+<div class="toast" id="toast" hidden><div><span id="toastMsg"></span><button type="button" id="toastUndo">Annuler</button></div></div>
+
+<script>
+(function () {
+  var SUGGESTED = ["Draps Paul", "Draps Rémi", "Draps YetM", "Évier", "Four", "Frigo", "Fenêtres", "Lessive tapis", "Lessive serviettes"];
+  var newestFirst = true, resetArmed = false;
+  var DAY = 864e5;
+  var tasks = [], expanded = null, col = null, useDb = false, loaded = false, armedDelete = null, undoFn = null, toastTimer = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- time helpers ---------- */
+  function startOfDay(ms) { var d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function daysSince(ms) { return Math.round((startOfDay(Date.now()) - startOfDay(ms)) / DAY); }
+  function human(n) {
+    if (n <= 0) return "Aujourd'hui";
+    if (n === 1) return "Hier";
+    if (n < 14) return "Il y a " + n + " j";
+    if (n < 60) return "Il y a " + Math.round(n / 7) + " sem.";
+    if (n < 730) return "Il y a " + Math.round(n / 30.4) + " mois";
+    return "Il y a " + Math.round(n / 365) + " ans";
+  }
+  function fmtDate(ms) { return new Date(ms).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }); }
+  function isoDay(ms) { var d = new Date(ms), p = function (x) { return String(x).padStart(2, "0"); }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+  function ratio(t) { return t.last == null ? Infinity : daysSince(t.last) / (t.every || 30); }
+  function tone(t) {
+    if (t.last == null) return "none";
+    if (!t.every) return "ok";
+    var r = ratio(t); return r >= 1 ? "late" : r >= 0.8 ? "soon" : "ok";
+  }
+
+  /* ---------- storage (db when available, else this browser) ---------- */
+  function newId() { return "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function clean(t) { return { name: t.name, every: t.every || 0, last: t.last == null ? null : t.last, log: (t.log || []).slice(0, 12) }; }
+  function localSave() { try { localStorage.setItem("menage-tasks", JSON.stringify(tasks)); } catch (e) {} }
+  function localLoad() { try { return JSON.parse(localStorage.getItem("menage-tasks") || "[]"); } catch (e) { return []; } }
+  async function save(t) {
+    if (useDb) { try { await col.doc(t.id).set(clean(t)); } catch (e) { setStatus("Enregistrement impossible pour le moment. Réessaie."); } return; }
+    var i = tasks.findIndex(function (x) { return x.id === t.id; });
+    if (i < 0) tasks.push(t); else tasks[i] = t;
+    localSave(); render();
+  }
+  async function remove(id) {
+    if (useDb) { try { await col.doc(id).delete(); } catch (e) { setStatus("Suppression impossible pour le moment."); } return; }
+    tasks = tasks.filter(function (x) { return x.id !== id; }); localSave(); render();
+  }
+
+  /* ---------- actions ---------- */
+  function markDone(t, when) {
+    var prev = t;
+    var log = (t.log || []).concat([when]).sort(function (a, b) { return b - a; }).slice(0, 12);
+    var next = { id: t.id, name: t.name, every: t.every, last: log[0], log: log };
+    save(next);
+    toast("« " + t.name + " » : fait", function () { save(prev); });
+  }
+  function toast(msg, undo) {
+    $("toastMsg").textContent = msg; undoFn = undo; $("toast").hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { $("toast").hidden = true; undoFn = null; }, 6000);
+  }
+  $("toastUndo").addEventListener("click", function () { if (undoFn) undoFn(); undoFn = null; $("toast").hidden = true; });
+  function setStatus(msg) { var s = $("status"); s.textContent = msg || ""; s.hidden = !msg; }
+
+  /* ---------- render ---------- */
+  function h(tag, props, kids) {
+    var e = document.createElement(tag);
+    for (var k in (props || {})) {
+      if (k === "class") e.className = props[k];
+      else if (k === "text") e.textContent = props[k];
+      else if (k.slice(0, 2) === "on") e.addEventListener(k.slice(2), props[k]);
+      else e.setAttribute(k, props[k]);
+    }
+    (kids || []).forEach(function (c) { if (c) e.appendChild(c); });
+    return e;
+  }
+  function card(t) {
+    var li = h("li", { class: "task" });
+    var when = t.last == null ? "Jamais fait" : human(daysSince(t.last));
+    var info = h("button", { class: "info", type: "button", "aria-expanded": String(expanded === t.id),
+      onclick: function () { expanded = expanded === t.id ? null : t.id; armedDelete = null; render(); } }, [
+      h("span", { class: "name", text: t.name }),
+      h("span", { class: "when", text: when }),
+      h("span", { class: "freq", text: t.last == null ? "Pas encore coché" : fmtDate(t.last) })
+    ]);
+    li.appendChild(h("div", { class: "row" }, [info, h("button", { class: "done", type: "button", text: "Fait", "aria-label": "Marquer « " + t.name + " » comme fait", onclick: function () { markDone(t, Date.now()); } })]));
+    if (expanded === t.id) li.appendChild(panel(t));
+    return li;
+  }
+  function panel(t) {
+    var date = h("input", { type: "date", id: "d-" + t.id, max: isoDay(Date.now()), value: isoDay(t.last == null ? Date.now() : t.last) });
+    var name = h("input", { type: "text", id: "n-" + t.id, value: t.name, maxlength: "80" });
+    var hist = (t.log || []).map(function (ms) { return h("span", { text: fmtDate(ms) }); });
+    var armed = armedDelete === t.id;
+    return h("div", { class: "panel" }, [
+      h("div", { class: "field" }, [h("label", { for: "d-" + t.id, text: "Fait pour la dernière fois le" }), date,
+        h("button", { class: "btn primary", type: "button", text: "Enregistrer", onclick: function () {
+          if (!date.value) return;
+          var p = date.value.split("-"); var ms = new Date(+p[0], +p[1] - 1, +p[2], 12).getTime();
+          if (ms > Date.now()) ms = Date.now();
+          markDone(t, ms);
+        } })]),
+      h("div", { class: "field" }, [h("label", { for: "n-" + t.id, text: "Nom" }), name,
+        h("button", { class: "btn", type: "button", text: "Renommer", onclick: function () {
+          save({ id: t.id, name: name.value.trim() || t.name, every: 0, last: t.last, log: t.log });
+        } })]),
+      hist.length ? h("div", { class: "field" }, [h("label", { text: "Historique" }), h("div", { class: "hist" }, hist)]) : null,
+      h("div", { class: "field" }, [h("button", { class: "btn danger" + (armed ? " armed" : ""), type: "button", text: armed ? "Confirmer la suppression" : "Supprimer la tâche",
+        onclick: function () { if (armed) { armedDelete = null; expanded = null; remove(t.id); } else { armedDelete = t.id; render(); } } })])
+    ]);
+  }
+  function render() {
+    var list = $("list");
+    var active = document.activeElement && document.activeElement.id;
+    list.textContent = "";
+    var sorted = tasks.slice().sort(function (a, b) {
+      var la = a.last == null ? (newestFirst ? -Infinity : Infinity) : a.last;
+      var lb = b.last == null ? (newestFirst ? -Infinity : Infinity) : b.last;
+      if (la === lb) return a.name.localeCompare(b.name, "fr");
+      return newestFirst ? (lb < la ? -1 : 1) : (la < lb ? -1 : 1);
+    });
+    sorted.forEach(function (t) { list.appendChild(card(t)); });
+    $("sort").textContent = newestFirst ? "Récents en haut" : "Anciens en haut";
+    $("reset").textContent = resetArmed ? "Confirmer : tout effacer et repartir de ma liste" : "Repartir de ma liste";
+    $("empty").hidden = !(loaded && tasks.length === 0);
+    $("count").textContent = tasks.length ? tasks.length + " tâche" + (tasks.length > 1 ? "s" : "") : "";
+    if (active) { var el = document.getElementById(active); if (el) el.focus(); }
+  }
+
+  /* ---------- events ---------- */
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("newName").value.trim(); if (!name) return;
+    save({ id: newId(), name: name, every: 0, last: Date.now(), log: [Date.now()] });
+    $("newName").value = "";
+  });
+  async function seedList() {
+    var now = Date.now();
+    for (var i = 0; i < SUGGESTED.length; i++) await save({ id: newId(), name: SUGGESTED[i], every: 0, last: now, log: [now] });
+  }
+  $("seed").addEventListener("click", async function () { $("seed").disabled = true; await seedList(); $("seed").disabled = false; });
+  $("sort").addEventListener("click", function () { newestFirst = !newestFirst; render(); });
+  $("reset").addEventListener("click", async function () {
+    if (!resetArmed) { resetArmed = true; render(); return; }
+    resetArmed = false; expanded = null; $("reset").disabled = true;
+    var ids = tasks.map(function (t) { return t.id; });
+    for (var i = 0; i < ids.length; i++) await remove(ids[i]);
+    await seedList(); $("reset").disabled = false; render();
+  });
+
+  /* ---------- boot ---------- */
+  function startLocal() {
+    tasks = localLoad(); loaded = true; useDb = false;
+    $("where").textContent = "Données gardées dans ce navigateur uniquement.";
+    render();
+  }
+  function boot() {
+    tasks = localLoad(); loaded = true; useDb = false;
+    $("where").textContent = "Données gardées sur cet appareil uniquement. Pense à exporter une sauvegarde de temps en temps.";
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    render();
+  }
+  $("export").addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(tasks, null, 1)], { type: "application/json" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "derniere-fois-" + isoDay(Date.now()) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  $("import").addEventListener("click", function () { $("file").click(); });
+  $("file").addEventListener("change", function () {
+    var f = $("file").files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var arr = JSON.parse(r.result);
+        if (!Array.isArray(arr)) throw 0;
+        tasks = arr.filter(function (t) { return t && typeof t.name === "string"; }).map(function (t) {
+          return { id: String(t.id || newId()), name: t.name, every: 0, last: typeof t.last === "number" ? t.last : null, log: Array.isArray(t.log) ? t.log.filter(function (x) { return typeof x === "number"; }) : [] };
+        });
+        localSave(); render(); setStatus("Sauvegarde importée.");
+      } catch (e) { setStatus("Fichier non reconnu."); }
+      $("file").value = "";
+    };
+    r.readAsText(f);
+  });
+  boot();
+})();
+</script>
+
+</body>
+</html>
